@@ -1,0 +1,5 @@
+src/test
+node_modules
+out
+todo
+package-lock.json

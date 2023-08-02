@@ -1,0 +1,33 @@
+body {
+  color: black;
+}
+
+textarea {
+  background-color: rgb(205, 205, 205);
+  color: black;
+}
+
+button {
+  background-color: rgb(225, 225, 225);
+  color: black;
+  border: 0.25vw solid rgb(195, 195, 195);
+}
+button:hover {
+  background-color: rgb(195, 195, 195);
+}
+
+.backgroundContainer {
+  background-color: rgb(235, 235, 235);
+}
+
+#displayBox {
+  color: black;
+  background-color: rgba(223, 223, 223, 0.75);
+  border: 0.25vw solid black;
+}
+.displayColour {
+  border: 0.25vw solid black;
+}
+#graphData {
+  background-color: rgb(225, 225, 225);
+}

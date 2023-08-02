@@ -1,0 +1,99 @@
+body {
+  font-size: 18px;
+}
+button {
+  width: 20vw;
+  height: 4vw;
+  font-weight: bold;
+  border-radius: 2vw;
+  margin-top: 1vw;
+  margin-bottom: 1vw;
+}
+textarea {
+  width: 40vw;
+  height: 300px;
+}
+.redText {
+  color: red;
+}
+.mainTitle {
+  font-size: 32px;
+  font-weight: bold;
+  text-decoration: underline;
+}
+.subTitle {
+  font-size: 24px;
+  font-weight: bold;
+}
+.miniTitle {
+  font-size: 20px;
+  font-weight: bold;
+}
+.mainDiv {
+  margin-top: 18px;
+}
+.containerDiv {
+  margin: 1.5vw;
+}
+/* Used for a line with text and something like a fillbox after it. */
+.textLine {
+  display: inline-flex;
+  margin-right: 0.5vw;
+}
+.listItem {
+  display: flex;
+  align-items: center;
+}
+.smallLineInputTextarea {
+  width: 60vw;
+  height: 5vh;
+}
+
+/* Allows title to have more vertical space. */
+.titleBlock {
+  display: flex;
+  align-items: center;
+  height: calc(39.2px + 2vh); /* 39.2 is the height for the mainTitle font */
+  margin-left: 1.5vw;
+}
+
+.backgroundContainer {
+  border-radius: 1vw;
+  display: flex;
+  margin-top: 2vh;
+}
+
+/* Box for the pie chart */
+#displayBox {
+  pointer-events: none;
+  border-radius: 2%;
+  position: fixed;
+}
+/* Pie chart legend, tiny box display */
+.displayColour {
+  width: 1.5vw;
+  height: 1.5vw;
+  display: inline-block;
+  margin-right: 1vw;
+}
+/* Pie chart legend list item. */
+.legendListItem {
+  display: flex;
+  align-items: center;
+  font-size: calc((4vw+4vh)/2);
+  margin-top: 1vh;
+}
+/* pie chart container */
+#graphData {
+  display: flex;
+  margin-top: 1vh;
+  border-radius: 1vw;
+}
+/* the pie itself */
+#pieChart {
+  border-radius: 50%;
+}
+/* pie chart legend container */
+#pieChartLegend {
+  margin-right: 1vw;
+}
