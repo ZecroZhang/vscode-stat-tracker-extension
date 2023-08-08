@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2016",
+    "lib": [ "DOM", "DOM.Iterable" ],
+    "outDir": "../out/",
+
+    "module": "CommonJS",
+    "esModuleInterop": true,
+    "allowJs": true,
+
+    "jsx": "react",
+    
+    "strict": true
+  }
+}

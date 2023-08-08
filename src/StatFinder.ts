@@ -8,14 +8,14 @@ interface FileStats {
   characters: number
 }
 
-interface GroupFileStats {
+export interface GroupFileStats {
   lines: number
   characters: number 
   files: number
   folders: number
 }
 
-interface ErrorCode {
+export interface ErrorCode {
   error: true 
   code: number
 }
@@ -30,7 +30,7 @@ interface ErrorCode {
  * @todo Fix the include/exclude... 
  */
 export function LinesOfCode (startPath: string, allowedExtensions: Array<string> = [], deniedNames: Array<string> = []): GroupFileStats | ErrorCode {
-  //Make sure the startpath exists. 
+  //Make sure the startPath exists. 
   if (!fs.existsSync(startPath) || !fs.lstatSync(startPath).isDirectory()) return { error: true, code: 1 }
 
   try {

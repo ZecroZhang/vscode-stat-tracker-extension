@@ -1,9 +1,8 @@
 import { Edits, NetAddRemove, TimeRange, UsageTime } from "./Structures"
 import * as vscode from "vscode"
 import { performance } from "perf_hooks"
-import { debugging } from "./extension"
 
-//Most of the updating of progressstorage happens here. 
+//Most of the updating of progress storage happens here. 
 var lastSaveTime: number = Date.now()
 const sessionStartTime: number = Date.now()
 
@@ -14,7 +13,7 @@ var currentLanguage: string = "none"
 var stopWatchReference: vscode.StatusBarItem
 
 /**
- * Single use function for initilization 
+ * Single use function for initialization 
  * @param stopwatch Stop watch object from the status bar. 
  * @param inputCurrentLanguage Current coding language of the editor. 
  */
@@ -28,8 +27,8 @@ export async function SetUpStopwatch (stopwatch: vscode.StatusBarItem, inputCurr
 
   //This updates the time for the first min(seconds display)
   while (Date.now() - sessionStartTime < 60000) {
-    await new Promise(resolve => setTimeout(resolve, 5000))
     UpdateStopWatch(stopwatch)
+    await new Promise(resolve => setTimeout(resolve, 5000))
   }
 
   //Updates the time after 1m and seconds are no longer shown. 
@@ -55,9 +54,7 @@ function UpdateStopWatch (stopwatch: vscode.StatusBarItem) {
     stopwatch.text = `⏱${ReturnTime(Date.now() - sessionStartTime)}`
   }
 
-  if (debugging) {
-    stopwatch.text += ` - ${currentLanguage}`
-  }
+  // stopwatch.text += ` - ${currentLanguage}`
 }
 
 export function UpdateStopwatchLanguage (inputCurrentLanguage: string) {
@@ -91,7 +88,7 @@ export function UpdateDateTimeAndSave(active: boolean, languageId: string, progr
   //Updates Code Time
   progressStorage.updateCodeTime(toAdd, languageId, active, projectPath)
 
-  //bulk characters from copy and paste and other sources are discared. 
+  //bulk characters from copy and paste and other sources are discarded. 
   if (totalEdits.characters.added > 10000 || totalEdits.characters.removed > 20000 || totalEdits.lines.added > 500 || totalEdits.lines.removed > 100) {
     totalEdits = new Edits()
   }
@@ -129,7 +126,7 @@ export function DocumentEdit (editor: vscode.TextDocumentChangeEvent, progressSt
   var bulkLines = new NetAddRemove(), bulkCharacters = new NetAddRemove()
   //Updates total characters and lines. 
   for (var c = 0; c < editor.contentChanges.length; c++) {
-    //Update the lines if it's not a signle line edit. 
+    //Update the lines if it's not a single line edit. 
     if (!editor.contentChanges[0].range.isSingleLine) {
       bulkLines.removed += Math.abs(editor.contentChanges[0].range.end.line - editor.contentChanges[0].range.start.line)
       bulkLines.net -= Math.abs(editor.contentChanges[0].range.end.line - editor.contentChanges[0].range.start.line)

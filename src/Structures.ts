@@ -1,6 +1,6 @@
-//Classes and interfaces are stored here. Interfaces are the same as class with the exception values may be undefined.
+//Classes and interfaces are stored here.
 
-import { globalContext } from "./extension"
+import { ExtensionContext } from "vscode"
 
 /**
  * @todo this[item].combine(new NetAddRemove(usageTimeObject[item])) <- this causes a bug where line, character progress isn't loaded. Unable to reproduce tho.
@@ -10,8 +10,10 @@ import { globalContext } from "./extension"
  * `Partial` utility type but instead of affecting only the object properties, it affects all sub-properties of the object. 
  */
 type DeepPartial<Type> = {
-  [ Property in keyof Type ]?: Type[Property] extends object ? DeepPartial<Type[Property]> : Type[Property]
+  [ Property in keyof Type ]?: Type[Property] extends object ? ( Type[Property] extends Array<any> ? Type[Property] : DeepPartial<Type[Property]> ) : Type[Property]
 }
+
+export type TimeRangeNames = "allTime" | "weeklyTime" | "todayTime"
 
 /**
  * Generic class for keeping track of adding/deletion changes. For lines of code, characters, and characters w/o bulk. 
@@ -66,15 +68,11 @@ export class NetAddRemove {
   }
 }
 
-interface TimeAllocationInterface {
-  totalTime?: number
-  activeTime?: number
-}
 export class TimeAllocation {
   totalTime: number
   activeTime: number
 
-  constructor (timeAllocation?: TimeAllocationInterface) {
+  constructor (timeAllocation?: DeepPartial<TimeAllocation>) {
     this.totalTime = Number(timeAllocation?.totalTime) || 0
     this.activeTime = Number(timeAllocation?.activeTime) || 0
   }
@@ -295,15 +293,11 @@ export class TypingStats {
 }
 
 //Coding Languages 
-interface CodingLanguageInterface {
-  time?: TimeAllocationInterface
-  edits?: Partial<Edits>
-}
 export class CodingLanguage {
   time: TimeAllocation
   edits: Edits
 
-  constructor (constructionInput?: CodingLanguageInterface) {
+  constructor (constructionInput?: DeepPartial<CodingLanguage>) {
     this.time = new TimeAllocation(constructionInput?.time)
     this.edits = new Edits(constructionInput?.edits)
   }
@@ -311,19 +305,16 @@ export class CodingLanguage {
    * Combines this class with another class.
    * @param codingLanguageObject Another codingLanguage class
    */
-  combine (codingLanguageObject?: CodingLanguageInterface) {
+  combine (codingLanguageObject?: DeepPartial<CodingLanguage>) {
     this.time.combine(new TimeAllocation(codingLanguageObject?.time))
     this.edits.combine(new Edits(codingLanguageObject?.edits))
   }
 }
 
-interface CodingLanguageCollectionInterface {
-  [ key: string ]: CodingLanguageInterface
-}
 export class CodingLanguageCollection {
   [ key: string ]: CodingLanguage
 
-  constructor (codingLanguageCollection?: CodingLanguageCollectionInterface) {
+  constructor (codingLanguageCollection?: DeepPartial<CodingLanguageCollection>) {
     if (!codingLanguageCollection) return
 
     var languageKeys = Array.from(Object.keys(codingLanguageCollection))
@@ -334,24 +325,19 @@ export class CodingLanguageCollection {
   }
 } 
 
-interface StatCounterSearchInterface {
-  path?: string
-  allowedFileExtensions?: string[],
-  ignoredFileFolderNames?: string[]
-}
 export class StatCounterSearch {
   path: string
   allowedFileExtensions: string[]
   ignoredFileFolderNames: string[]
 
-  constructor (statCounterSearch?: StatCounterSearchInterface) {
+  constructor (statCounterSearch?: DeepPartial<StatCounterSearch>) {
     this.path = statCounterSearch?.path || ""
     this.allowedFileExtensions = statCounterSearch?.allowedFileExtensions || []
     this.ignoredFileFolderNames = statCounterSearch?.ignoredFileFolderNames || []
   }
 }
 
-//For individial project workspaces 
+//For individual project workspaces 
 export class ProjectStatsInfo {
   name: string
   path: string //path will act as the id. 
@@ -359,7 +345,7 @@ export class ProjectStatsInfo {
   //This is for the "Stat Counter" section of the webview. Saves the file types and stuff. 
   search: StatCounterSearch
 
-  constructor (project?: Partial<ProjectStatsInfo>) {
+  constructor (project?: DeepPartial<ProjectStatsInfo>) {
     this.path = project?.path || "/unknown"
     this.name = project?.name || ProjectStats.FolderFromPath(this.path)
     
@@ -367,21 +353,13 @@ export class ProjectStatsInfo {
   }
 }
 
-interface ProjectStatsInterface {
-  path?: string
-  timeAllocation?: TimeAllocationInterface
-  edits?: Partial<Edits>
-
-  //Might add a language data but this would make it huge. Me in the future: yes and it dosen't matter since a computer does all the work :)
-  languages?: CodingLanguageCollectionInterface,
-}
 export class ProjectStats {
   path: string
   timeAllocation: TimeAllocation
   edits: Edits
   languages: CodingLanguageCollection
 
-  constructor (project?: ProjectStatsInterface) {
+  constructor (project?: DeepPartial<ProjectStats>) {
     this.path = project?.path || "/unknown"
 
     this.timeAllocation = new TimeAllocation(project?.timeAllocation)
@@ -390,9 +368,18 @@ export class ProjectStats {
     this.languages = new CodingLanguageCollection(project?.languages)
   }
 
-  combine (project: ProjectStats) {
-    //Path isn't gonna change since that makes no sense. 
+  /**
+   * Combine two projects. 
+   * @param project other project. 
+   * @param replacePath If the path of this one should be replaced with the path of the other project. 
+   */
+  combine (project: ProjectStats, replacePath: boolean) {
     //Idk how to even combine a title. 
+
+    if (replacePath) {
+      this.path = project.path
+    }
+
     this.timeAllocation.combine(project.timeAllocation)
     this.edits.combine(project.edits)
   }
@@ -407,12 +394,12 @@ interface TimeRangeInterface {
   //WB stands for without bulk.
   resets?: number
   codeTime?: TimeAllocation
-  edits?: Partial<Edits>
-  languages?: CodingLanguageCollectionInterface
+  edits?: DeepPartial<Edits>
+  languages?: DeepPartial<CodingLanguageCollection>
   typing?: Partial<TypingStats>
-  projects?: Array<ProjectStatsInterface>
+  projects?: Array<DeepPartial<ProjectStats>>
 
-  //used exclusively for customtimerange.
+  //used exclusively for custom time ranges.
   startTime?: number 
 }
 export class TimeRange {
@@ -449,7 +436,7 @@ export class TimeRange {
   }
   
   combine (timeRangeObject?: TimeRangeInterface) {
-    //Resets will be ignored since the main is probably more important. More emphesis that this is the correct object or the code will break.
+    //Resets will be ignored since the main is probably more important. More emphasis that this is the correct object or the code will break.
     this.codeTime.combine(new TimeAllocation(timeRangeObject?.codeTime))
     this.edits.combine(new Edits(timeRangeObject?.edits))
 
@@ -476,7 +463,7 @@ export class TimeRange {
         let preExistingProject = this.projects.find(p => p.path == project.path)
 
         if (preExistingProject) {
-          preExistingProject.combine(new ProjectStats(project))
+          preExistingProject.combine(new ProjectStats(project), false)
         } else {
           this.projects.push(new ProjectStats(project))
         }
@@ -485,7 +472,7 @@ export class TimeRange {
   }
 
   /**
-   * Checks that all the project stat infos exist. This should be called everytime the all time is loaded to ensure backwards compatibiliy when loading json without the project stats thing. 
+   * Checks that all the project stat infos exist. This should be called every time the all time is loaded to ensure backwards compatibility when loading json without the project stats thing. 
    */
   projectStatsInfoCheck (projectStatsInfo: Map<string, ProjectStatsInfo>) {
     for (let project of this.projects) {
@@ -501,7 +488,7 @@ export class TimeRange {
   }
 
   /**
-   * Reserts this time range to a new one. 
+   * Resets this time range to a new one. 
    * @param nextReset Date timestamp of next reset
    */
   reset (nextReset: number) {
@@ -533,7 +520,6 @@ export interface UsageTimeInterface {
   projectInfo?: ProjectStatsInfo[]
 }
 
-var lastSave = Date.now()
 /**
  * Time required to wait before saving again. This makes it easier on my usb which has a write speed of 0mb/s 
  */
@@ -547,15 +533,20 @@ export class UsageTime {
   customTime: Array<CustomTimeRange>
 
   /**
-   * Reference for the other time ranges so they can be looped over. 
-   */
-  timeRangeRef: Array<TimeRange>
-  /**
    * Fast look up for project info when given the path to the project. 
    */
   projectInfo: Map<string, ProjectStatsInfo>
+  
+  //All properties below are not saved when converted to JSON. 
 
-  constructor (constructionInput?: UsageTimeInterface) {
+  /**
+   * Reference for the other time ranges so they can be looped over. 
+   */
+  timeRangeRef: Array<TimeRange>
+  lastSave: number
+  context: ExtensionContext | null
+
+  constructor (extensionContext: ExtensionContext | null, constructionInput?: UsageTimeInterface) {
     this.startTime = constructionInput?.startTime || Date.now()
 
     this.allTime = new TimeRange(constructionInput?.allTime)
@@ -574,7 +565,7 @@ export class UsageTime {
       }
     }
 
-    // this is just to make sure all the projects that exist have their associated projectstatinfo object(for loading older json). 
+    // this is just to make sure all the projects that exist have their associated ProjectStatInfo object(for loading older JSON). 
     this.allTime.projectStatsInfoCheck(this.projectInfo)
 
     //Will not include the ones in custom time. 
@@ -583,9 +574,11 @@ export class UsageTime {
       this.weeklyTime,
       this.todayTime
     ]
+
+    this.lastSave = Date.now()
+    this.context = extensionContext
   }
 
-  //Might need debugging. 
   combine (usageTimeObject: UsageTime) {
     if (usageTimeObject.startTime < this.startTime) {
       this.startTime = usageTimeObject.startTime
@@ -613,10 +606,10 @@ export class UsageTime {
   }
 
   /**
-   * Deletes all the language data ffor all time ranges and projects. 
+   * Deletes all the language data for all time ranges and projects. 
    */
   deleteAllLanguageData () {
-    //Clear the range of all the timeraneg refs 
+    //Clear the range of all the time range refs 
     for (var range of [ ...this.timeRangeRef, ...this.customTime ]) {
       range.languages = new CodingLanguageCollection()
       
@@ -690,7 +683,7 @@ export class UsageTime {
    * Gets the current project we're working on for this time range, and creates one if it doesn't exist. 
    * @param timeRange 
    * @param projectPath Path of the project... or none.
-   * @returns `ProjectStats` project stats or null if the projectpath is invalid. 
+   * @returns `ProjectStats` project stats or null if the project path is invalid. 
    */
   getCurrentProject(timeRange: TimeRange, projectPath: "" | undefined): null
   getCurrentProject(timeRange: TimeRange, projectPath: string): ProjectStats //Exclude<string, ""> doesn't work which is annoying.
@@ -723,27 +716,28 @@ export class UsageTime {
    * Get the project based on a path, given a time range. 
    * @param timeRange 
    * @param projectPath 
-   * @returns projectstats or null if not found. 
+   * @returns project stats or null if not found. 
    */
   getProject (timeRange: TimeRange, projectPath: string | undefined): ProjectStats | null {
-    //similar to getcurrentproject but it doesn't create one if doesn't exist. 
+    //similar to getCurrentProject but it doesn't create one if doesn't exist. 
     return timeRange.projects.find(item =>  item.path == projectPath) || null
   }
 
   /**
-   * Gets the additional info of the current project.  
-   * @param timeRange 
-   * @param projectPath 
+   * Gets the additional info of the current project. If it doesn't exist and the path isn't empty, a new project will be created. 
+   * @param projectPath path of the project. 
+   * @param allowCreation if the function is allowed to create the project that doesn't exist. 
+   * @returns ProjectStatsInfo or null if the path is empty. 
    */
-  getCurrentProjectInfo(projectPath: "" | undefined): null
-  getCurrentProjectInfo(projectPath: string): ProjectStatsInfo
-  getCurrentProjectInfo(projectPath: string | undefined): ProjectStatsInfo | null {
+  getCurrentProjectInfo(projectPath: "" | undefined, allowCreation?: boolean): null
+  getCurrentProjectInfo(projectPath: string, allowCreation?: boolean): ProjectStatsInfo
+  getCurrentProjectInfo(projectPath: string | undefined, allowCreation: boolean = true): ProjectStatsInfo | null {
     if (!projectPath) {
       return null
     }
 
-    //if not exist, then create a new one.
-    if (!this.projectInfo.has(projectPath)) {
+    //if not exist, then create a new one, assuming it is allowed. 
+    if (!this.projectInfo.has(projectPath) && allowCreation !== false) {
       let project = new ProjectStatsInfo({ path: projectPath })
 
       this.projectInfo.set(projectPath, project)
@@ -753,16 +747,33 @@ export class UsageTime {
   }
 
   /**
+   * Iterates over all time ranges. 
+   * @param callback Processing to do for each time range. 
+   * 
+   * @todo Add support for custom time ranges. 
+   */
+  forAllTimeRanges (callback: (range: TimeRange, identifier: TimeRangeNames) => void) {
+    for (let timeRange of [ "todayTime", "weeklyTime", "allTime" ] as const) {
+      callback(this[timeRange], timeRange)
+    }
+  }
+
+  /**
    * Saves the progress
-   * @param force If to force the write to disk. If set to false, writes may be skipped to save lag on hdds and or usbs(this is probably only a me issue). 
+   * @param force If to force the write to disk. If set to false, writes may be skipped to save lag on HDDs and or USBs(this is probably only a me issue). 
    */
   save (force: boolean = false) {
-    //prevents saving a bunch of times per second. 
-    if (Date.now() > lastSave + saveTimer || force) {
-      lastSave = Date.now()
-
-      globalContext.globalState.update("progressStorage", this)
+    if (!this.context) {
+      return
     }
+
+    //prevents saving a bunch of times per second. 
+    if (Date.now() < this.lastSave + saveTimer && !force) {
+      return
+    }
+    
+    this.context.globalState.update("progressStorage", this)
+    this.lastSave = Date.now()
   }
 
   toJSON () {

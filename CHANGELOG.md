@@ -1,17 +1,26 @@
 # Change Log
 
+### [0.1.4]
+- Added naming of projects. 
+- Added ability to merge project stats.
+- Rewrote webview using TypeScript React.
+- Renamed extension internally. This breaks backwards compatibility again.
+- Using webpack for bundling.
+
 ### [0.1.3]
-- ...
+- Refactored internal structures to remove the use of interfaces for Partial objects.
+- *Possible undocumented changes.* 
 
 ### [0.1.2]
-- ...
+- Refactored internal structures and save data structure. Older version are no longer backwards compatible.
+- *Possible undocumented changes.* 
 
 ### [0.1.1]
 - Webview changes:
   - Webview can show the language usage graph.
   - Webview can count the stats of files in a specific directory.
   - Added dark and light theme for webview. Based on the current vs code theme. 
-- Moved to typescript. Added way too much boilerplate... 
+- Rewrote main extension in TypeScript. 
 
 ### [0.1.0]
 - Rewrote the webview. Now it updates automatically when re-entering the window and extra functionality at the bottom.
@@ -30,17 +39,17 @@
 - Added error message for load or random exceptions when running the extension to make it easier to debug.
 - Added commas to the total stats. 
 - Fixed an issue with account creation.
-- Set up an unfunctional text counter for the next update. 
+- Set up an nonfunctional text counter for the next update. 
 
 ### [1.0.6]
-- Attmept to patch a bug causing an extreme amount of code to be written.
+- Attempt to patch a bug causing an extreme amount of code to be written.
 - No longer saves after 100 lines or 10k characters in 1 min.
 - Added command to delete today's progress.
 - Added command to delete the written values from different languages.
 
 ### [1.0.5]
 - Keeps track of the net lines, characters and characters without bulk for the languages.
-- Also displays the top 3 languages as well as their stats and percentage of time used. *Hehe js at 91% for me lol.*
+- Also displays the top 3 languages as well as their stats and percentage of time used.
 - Stats show when the today and weekly stats reset.
 - Timer increments by 5 seconds instead of 1 until the 1m mark.
 

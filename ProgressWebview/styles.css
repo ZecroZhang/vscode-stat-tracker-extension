@@ -30,12 +30,12 @@ textarea {
   font-weight: bold;
 }
 .mainDiv {
-  margin-top: 18px;
+  margin-bottom: 18px;
 }
 .containerDiv {
   margin: 1.5vw;
 }
-/* Used for a line with text and something like a fillbox after it. */
+/* Used for a line with text and something like a text box after it. */
 .textLine {
   display: inline-flex;
   margin-right: 0.5vw;
@@ -46,7 +46,7 @@ textarea {
 }
 .smallLineInputTextarea {
   width: 60vw;
-  height: 5vh;
+  height: 20px;
 }
 
 /* Allows title to have more vertical space. */

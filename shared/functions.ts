@@ -1,7 +1,7 @@
 /**
  * Converts milliseconds to a human readable time format. 
  * @param timeMs The amount of time in ms.
- * @param precision The amount of decimal precision on the seconds.
+ * @param precision The amount of decimal precision on the seconds. Defaults to no subsecond precision. 
  */
 export function MsToTime (timeMs: number, precision: number = 0): string {
   //Check if the input is negative. If so, set it to the absolute value.
@@ -14,7 +14,7 @@ export function MsToTime (timeMs: number, precision: number = 0): string {
   var minutes = Math.floor(timeMs / 60000) % 60
   var seconds = (timeMs/1000) % 60
 
-  var timeBuilder = []
+  var timeBuilder: string[] = []
 
   if (hours > 0) timeBuilder.push(`${hours} ${Plural("hour", hours)}`)
   if (minutes > 0) timeBuilder.push(`${minutes} ${Plural("minute", minutes)}`)
