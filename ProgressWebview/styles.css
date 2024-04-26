@@ -2,14 +2,18 @@ body {
   font-size: 18px;
 }
 button {
-  width: 20vw;
-  height: 4vw;
+  height: 40px;
   font-weight: bold;
-  border-radius: 2vw;
-  margin-top: 1vw;
-  margin-bottom: 1vw;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  padding-left: 10px;
+  padding-right: 10px;
+  border-style: solid;
+  border-width: 2px;
+  border-radius: 5px;
 }
 textarea {
+  margin-top: 4px;
   width: 40vw;
   height: 300px;
 }
@@ -33,12 +37,12 @@ textarea {
   margin-bottom: 18px;
 }
 .containerDiv {
-  margin: 1.5vw;
+  margin: 12px;
 }
 /* Used for a line with text and something like a text box after it. */
 .textLine {
   display: inline-flex;
-  margin-right: 0.5vw;
+  margin-right: 4px;
 }
 .listItem {
   display: flex;
@@ -53,47 +57,60 @@ textarea {
 .titleBlock {
   display: flex;
   align-items: center;
-  height: calc(39.2px + 2vh); /* 39.2 is the height for the mainTitle font */
-  margin-left: 1.5vw;
+  height: 50px;
+  margin-left: 12px;
 }
 
 .backgroundContainer {
-  border-radius: 1vw;
+  border-radius: 8px;
   display: flex;
-  margin-top: 2vh;
+  margin-top: 10px;
 }
 
 /* Box for the pie chart */
 #displayBox {
   pointer-events: none;
-  border-radius: 2%;
   position: fixed;
+  border-radius: 2%;
+  border-style: solid;
+  border-width: 2px;
 }
 /* Pie chart legend, tiny box display */
 .displayColour {
-  width: 1.5vw;
-  height: 1.5vw;
+  width: 18px;
+  height: 18px;
   display: inline-block;
-  margin-right: 1vw;
+  margin-right: 8px;
+  border-style: solid;
+  border-width: 2px;
 }
 /* Pie chart legend list item. */
 .legendListItem {
   display: flex;
   align-items: center;
-  font-size: calc((4vw+4vh)/2);
-  margin-top: 1vh;
+  margin-top: 10px;
 }
 /* pie chart container */
 #graphData {
   display: flex;
-  margin-top: 1vh;
-  border-radius: 1vw;
+  margin-top: 10px;
+  border-radius: 8px;
 }
 /* the pie itself */
 #pieChart {
   border-radius: 50%;
 }
+
+/* No data box */
+#pieChartNoData {
+  display: flex;
+  width: 100%;
+  height: 400px;
+  justify-content: center;
+  align-items: center;
+}
+
 /* pie chart legend container */
 #pieChartLegend {
-  margin-right: 1vw;
+  margin-right: 5px;
 }

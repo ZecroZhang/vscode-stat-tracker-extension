@@ -1,122 +1,173 @@
-//Types of messages to be passed between the webview and the backend. 
+// Types of messages to be passed between the webview and the backend. 
+import { GroupFileStats } from "../src/StatFinder"
+import { CodingLanguage } from "../src/structs/CodingLanguage"
+import { ProjectStats } from "../src/structs/ProjectStats"
+import { ProjectStatsInfo } from "../src/structs/ProjectStatsInfo"
+import { TimeAllocation } from "../src/structs/TimeAllocation"
+import { TimeRange } from "../src/structs/TimeRange"
+import { TypingSpeed } from "../src/structs/TypingStats"
+import { TimeRangeNames } from "../src/structs/structs"
 
-import { CodingLanguage, ProjectStats, ProjectStatsInfo, TimeAllocation, TimeRange } from "../src/Structures"
-
-//Type for removing the methods on a class. Since these objects are passed between client and backend as JSON. 
+// Type for removing the methods on a class. Since these objects are passed between client and backend as JSON. 
 type UnClass<T> = {
-  [ K in keyof T ]: T[K] extends Function ? undefined : ( //remove function 
-    T[K] extends object ? UnClass<T[K]> : T[K] //remove any sub functions 
+  [ K in keyof T ]: T[K] extends Function ? undefined : ( // remove function 
+    T[K] extends object ? UnClass<T[K]> : T[K] // remove any sub functions 
   )
 }
 
-//All Commands which the client can send the backend for a response. 
-export type BackendCommands = "mostUsedLanguages" | "extensionStartDate" | "statsJSONData" | "projectPath" | "updateUsageData" | "colourTheme" | "currentProject" | "progressObject" | "getProject" | "allProjectInfos" | "scanLines" | "updateIANames" | "updateProjectName" | "mergeProjects"
+// Backend response types.
 
 export interface BaseMessage {
   id: number
 }
 
-//Message featuring a command for the backend to process. 
-export interface BaseCommandMessage {
-  command: BackendCommands
-
-  type?: string
-  amount?: number
-  path?: string
-  data?: string
-}
-
-
-/* Below are client requests. */
-export interface UpdateIACommand extends BaseCommandMessage {
-  command: "updateIANames"
-  allowedFileFolders: string[]
-  ignoredFileFolders: string[]
-}
-
-export interface ScanLinesCommand extends Omit<UpdateIACommand, "command"> {
-  command: "scanLines"
-  error?: boolean
-  path: string
-}
-
-export interface UpdateUsageCommand extends BaseCommandMessage {
-  command: "updateUsageData"
-  json: object
-}
-
-export interface UpdateProjectNameCommand extends BaseCommandMessage {
-  command: "updateProjectName"
-  path: string
-  name: string
-}
-export interface MergeProjectCommand extends BaseCommandMessage {
-  command: "mergeProjects"
-  //Only the first path is kept.
-  paths: string[]
-}
-
-//The command that is passed into `AwaitMessage` because the Id is only generated there. 
-export type ServerCommandConstruct = BaseCommandMessage | UpdateIACommand | ScanLinesCommand | UpdateUsageCommand | UpdateProjectNameCommand | MergeProjectCommand
-
-export type ServerCommand = ServerCommandConstruct & BaseMessage
-
-/* Below are server responses */
-
-interface SuccessResponse extends BaseMessage {
+interface SuccessResponse {
   error: false
 }
-export interface ErrorResponse extends BaseMessage {
+interface ErrorResponse {
   error: true
   errorMessage: string
 }
+
 /**
- * Basically a BaseMessage response but it also contains a possibility for error. 
+ * Response for a basic task. Either it's successful or there was an error.
  */
-export type SimpleResponse = SuccessResponse | ErrorResponse
+type TaskResponse = SuccessResponse | ErrorResponse
 
-export interface MostUsedLanguagesResponse extends BaseMessage {
-  //Don't use the class methods since this is converted to/from json. 
-  data: [ string, CodingLanguage ][]
-  otherLanguages: null | {
-    amount: number
-    time: TimeAllocation
-  }
-}
-
-export interface ProgressObjectResponse extends BaseMessage {
-  data: TimeRange
-  cps: number | "unknown"
-}
-
-export interface ProjectResponse extends BaseMessage {
+export type ProjectResponse = {
   path: string
   project: ProjectStats
   info: ProjectStatsInfo 
+} & SuccessResponse | ErrorResponse
+
+export interface ProjectInfo {
+  name: string
+  path: string
+  time: number
 }
 
-export interface AllProjectInfo extends BaseMessage {
-  data: {
-    name: string
+// This maps the command to the response that the backend sends back.
+/**
+ * Maps the commands to their response data(ignoring `BaseMessage`). All these values will be added to `BaseMessage`
+ */
+export type BackendResponseMapping = {
+  extensionStartDate: {
+    date: number
+  }
+  colourTheme: {
+    isDark: boolean
+  }
+  statsJSONData: {
+    json: string
+  }
+  progressObject: {
+    progress: TimeRange
+    cps: TypingSpeed
+  }
+  currentProject: ProjectResponse
+  getProject: ProjectResponse
+  projectPath: { path: string } & SuccessResponse | ErrorResponse
+  allProjectInfo: {
+    projects: ProjectInfo[]
+  }
+  mostUsedLanguages: {
+    top: [ string, CodingLanguage ][]
+    other: null | {
+      amount: number
+      time: TimeAllocation
+    }
+  }
+  getGraphData: {
+    error: false
+    data: {
+      name: string
+      amount: number
+    }[]
+    totalAmount: number
+  } | ErrorResponse
+  getSearchIgnores: {
+    ignoredGitignore: boolean
+    ignoreVscodeIgnore: boolean
+  }
+  getDefaultIA: {
+    allowed: string[]
+    ignored: string[]
+  }
+
+  updateIANames: TaskResponse
+  updateUsageData: SuccessResponse
+  updateProjectName: TaskResponse
+  mergeProjects: TaskResponse
+  scanLines: GroupFileStats & SuccessResponse | ErrorResponse
+}
+
+/**
+ * All the commands the progress webview can send to the backend.
+ */
+export type ProgressWebviewCommands = keyof BackendResponseMapping
+
+// Client request types
+
+export interface BaseRequest<C extends ProgressWebviewCommands> {
+  command: C
+  id: number
+}
+
+interface TimeRangeCommandArgument {
+  timeRange: TimeRangeNames
+}
+
+export type GraphTypes = "lines" | "characters" | "charactersWB" | "time"
+export type GraphSubTypes = "net" | "added" | "removed" | "active" | "total"
+
+/**
+ * These are the mappings for the client command to the data it needs to be included, excluding the id and the command itself. These properties will be added back later.
+ * **Note**: since most commands are simple requests with command only, only commands which require extra data to be passed in are included here.
+ */
+export type CommandRequestMappings = {
+  progressObject: TimeRangeCommandArgument
+  currentProject: TimeRangeCommandArgument
+  getProject: TimeRangeCommandArgument & {
     path: string
-    time: number
-  }[]
+  }
+  allProjectInfo: TimeRangeCommandArgument
+  mostUsedLanguages: {
+    amount?: number
+  }
+  getGraphData: {
+    timeRange: TimeRangeNames
+    /**
+     * What to be ranked. Either "project" for all projects, "language" for languages of the time range, or path to project for that project's languages.
+     */
+    rank: string
+    type: GraphTypes
+    /**
+     * active and total are only for time, the rest are for `type` other than time
+     */
+    subtype: GraphSubTypes
+  }
+  updateIANames: {
+    allowedFileFolders: string[]
+    ignoredFileFolders: string[]
+  }
+  updateUsageData: {
+    // Should be a UsageTimeInterface object
+    data: object
+  }
+  updateProjectName: {
+    path: string
+    name: string
+  }
+  mergeProjects: {
+    paths: [ string, string, ...string[] ]
+  }
+  scanLines: {
+    path: string
+    allowedFileFolders: string[]
+    ignoredFileFolders: string[]
+  }
 }
 
-export interface FileStatsInfo extends BaseMessage {
-  lines: number
-  characters: number 
-  files: number
-  folders: number
-}
+// Helper types for the arguments of the message passing functions
 
-//date or number
-export interface NumberResponse extends BaseMessage {
-  data: number
-}
-
-export interface JSONResponse extends BaseMessage {
-  data: string
-}
-
-export type BackendResponse = MostUsedLanguagesResponse | ProgressObjectResponse | ProjectResponse | AllProjectInfo | NumberResponse | JSONResponse | FileStatsInfo | SimpleResponse 
+export type CompleteBackendResponse<C extends ProgressWebviewCommands> = BackendResponseMapping[C] & BaseMessage

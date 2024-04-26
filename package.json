@@ -3,7 +3,7 @@
   "publisher": "ZecroZhang",
   "displayName": "Zecro's Utility",
   "description": "VSCode stat tracker as well as some random utility that got thrown together.",
-  "version": "0.1.4",
+  "version": "1.0.0",
   "icon": "src/log.png",
   "license": "GPL-3.0-or-later",
   "repository": {
@@ -35,31 +35,78 @@
         "title": "Delete Language Stat Data"
       },
       {
-        "command": "zecrosUtility.deleteTodayProgress",
-        "title": "Delete Today's Progress"
-      },
-      {
-        "command": "zecrosUtility.deleteLanguageTypedStats",
-        "title": "Delete Language Typed Stats(excluding time)"
-      },
-      {
         "command": "zecrosUtility.countStats",
         "title": "Document Stats"
       }
+    ],
+    "configuration": [
+      {
+        "title": "ZecroStatTracker",
+        "properties": {
+          "zecroStatTracker.statTracking.autoSaveInterval": {
+            "type": "number",
+            "default": 60,
+            "description": "Minium time, in seconds, for user stats can be saved due to a user action, ie character typed, switch tab, etc. This extension will always save the progress when the code instance is closed gracefully(if the vscode instance crashes, unsaved data will be lost). Set the value 0 or less for it to only save once the extension closes."
+          },
+          "zecroStatTracker.statTracking.trackStats": {
+            "type": "boolean",
+            "default": true,
+            "description": "If the extension should track coding stats. Eg: code time, languages used, amount of code written."
+          },
+          "zecroStatTracker.accessories.showStatusBarClock": {
+            "type": "boolean",
+            "default": true,
+            "description": "If the status bar clock should show. If disabled you can see stats using the View Progress command. (Requires reload to take effect)"
+          },
+          "zecroStatTracker.accessories.wordCounting": {
+            "type": "string",
+            "default": "txt",
+            "description": "Display the word counter for these file endings. (Separate file endings with a comma) Note: txt applies to other non language plaintext files. Use .txt for only files ending in .txt."
+          },
+          "zecroStatTracker.fileCounting.defaultAllowedFilesEndings": {
+            "type": "string",
+            "default": ".js, .ts",
+            "description": "Default allowed file endings for the stats counter in the progress stats webview. (Separate file endings with a comma)"
+          },
+          "zecroStatTracker.fileCounting.defaultExcludedFiles": {
+            "type": "string",
+            "default": "node_modules, .git",
+            "description": "Default disallowed file/folder globs, to be ignored when counting stats in the progress stats webview. (Separate globs with a comma)"
+          },
+          "zecroStatTracker.fileCounting.ignoredGitignore": {
+            "type": "boolean",
+            "default": true,
+            "description": "Have the file stats counter, in the progress stats webview, ignore what .gitignore ignores as well."
+          },
+          "zecroStatTracker.fileCounting.ignoreVscodeIgnore": {
+            "type": "boolean",
+            "default": false,
+            "description": "Have the file stats counter, in the progress stats webview, ignore what .vscodeignore ignores as well."
+          }
+        }
+      }
     ]
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true,
+      "description": ""
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "webpack",
+    "compile-tests": "tsc",
     "watch": "webpack --watch",
     "package": "webpack --mode production --devtool hidden-source-map",
-    "pretest": "npm run compile-tests && npm run compile && npm run lint"
+    "pretest": "npm run compile-tests && npm run compile",
+    "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.22.9",
     "@babel/preset-react": "^7.22.5",
     "@babel/preset-typescript": "^7.22.5",
-    "@types/glob": "^7.2.0",
+    "@types/glob": "^8.1.0",
     "@types/mocha": "^9.1.0",
     "@types/node": "14.x",
     "@types/react-dom": "^18.2.7",
@@ -70,12 +117,15 @@
     "babel-loader": "^9.1.3",
     "css-loader": "^6.8.1",
     "eslint": "^8.11.0",
-    "glob": "^7.2.0",
+    "glob": "^7.2.3",
     "mocha": "^9.2.2",
     "react-dom": "^18.2.0",
     "ts-loader": "^9.4.4",
     "typescript": "^4.5.5",
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "minimatch": "^9.0.3"
   }
 }

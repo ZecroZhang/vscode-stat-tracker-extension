@@ -8,8 +8,9 @@
 		],
 		"sourceMap": true,
 		"strict": true,
-		"strictNullChecks": true
+		"strictNullChecks": true,
+		"esModuleInterop": true
 	},
-  "include": [ "./src/" ],
+  "include": [ "./src/", "./test/" ],
 	"exclude": [ "./ProgressWebview/" ]
 }

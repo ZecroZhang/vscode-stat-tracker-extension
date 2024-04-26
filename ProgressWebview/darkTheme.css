@@ -10,7 +10,7 @@ textarea {
 button {
   background-color: rgb(30, 30, 30);
   color: white;
-  border: 0.25vw solid rgb(60, 60, 60);
+  border-color: rgb(60, 60, 60);
 }
 button:hover {
   background-color: rgb(60, 60, 60);
@@ -23,10 +23,10 @@ button:hover {
 #displayBox {
   color: white;
   background-color: rgba(32, 32, 32, 0.75);
-  border: 0.25vw solid white;
+  border-color: white;
 }
 .displayColour {
-  border: 0.25vw solid white;
+  border-color: white;
 }
 #graphData {
   background-color: #1e1e1e;

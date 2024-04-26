@@ -1,24 +1,33 @@
-import * as vscode from "vscode"
-import { ProjectStats, TimeAllocation, UsageTime, TimeRangeNames } from "./Structures"
-
-import { AllProjectInfo, BackendResponse, MergeProjectCommand, ScanLinesCommand, ServerCommand, UpdateIACommand, UpdateProjectNameCommand, UpdateUsageCommand } from "../shared/MessageTypes"
+import fs from "fs"
+import vscode from "vscode"
+import { BackendResponseMapping, BaseRequest, CommandRequestMappings, CompleteBackendResponse, ProgressWebviewCommands, ProjectInfo, ProjectResponse } from "../shared/MessageTypes"
 import { ErrorCode, GroupFileStats, LinesOfCode } from "./StatFinder"
+import { UsageTime } from "./structs/UsageTime"
+import { TimeAllocation } from "./structs/TimeAllocation"
+import { TimeRangeNames } from "./structs/structs"
+import { ProjectStats } from "./structs/ProjectStats"
+import { GetConfig, GetDefaultIANames, GetStatCounterConfig } from "./helper/GetConfig"
+import { TimeRange } from "./structs/TimeRange"
+import { CodingLanguage } from "./structs/CodingLanguage"
 
 export interface ProgressViewMessagePost {
   [ key: string ]: any
 
   id: number,
   date?: Date,
-  html?: any, //It's supposed to be a string but, I can't get the multi-type function to work for this. 
+  html?: any, // It's supposed to be a string but, I can't get the multi-type function to work for this. 
   data?: any
 }
 
 /**
- * 
- * @param scriptLink 
+ * Generates the html for the progress webview page.
+ * It only contains the scripts and stylesheets in the header.
+ * The body's empty.
+ * @param scriptLink uri link to the script.
  * @param stylesLinks Array order: styles.css, darkTheme.css, lightTheme.css
+ * @returns html
  */
-export function WebpageHTML (scriptLink: vscode.Uri, stylesLinks: Array<vscode.Uri>, iconLink: vscode.Uri): string {
+export function WebpageHTML (scriptLink: vscode.Uri, stylesLinks: vscode.Uri[], iconLink: vscode.Uri): string {
   return `<!DOCTYPE html>
   <html lang="en">
   <head>
@@ -37,11 +46,11 @@ export function WebpageHTML (scriptLink: vscode.Uri, stylesLinks: Array<vscode.U
 /**
  * Gets the top `amount` languages sorted based on totalTime. 
  * @param amount amount of top languages. This will not exceed the amount of total languages. 
- * @param progressStorage 
+ * @param progressStorage user data.
  * @returns Array of tuples(language name, coding language). It may be sized `amount+1`, with the last item representing all other languages. **Only time is saved as of right now.**
  */
-function TopLanguages (progressStorage: UsageTime, id: number, amount?: number) {
-  //Currently for allTime and sorted by time. These will be modifiable later. 
+function TopLanguages (progressStorage: UsageTime, amount?: number) {
+  // Currently for allTime and sorted by time. These will be modifiable later. 
   let sortedLanguages = Array.from(Object.entries(progressStorage.allTime.languages)).sort((a, b) => b[1].time.totalTime - a[1].time.totalTime)
 
   if (amount === undefined) {
@@ -56,11 +65,11 @@ function TopLanguages (progressStorage: UsageTime, id: number, amount?: number) 
   }
 
   let otherLanguageCount = sortedLanguages.length - amount
-  //Cut out the others. 
+  // Cut out the others. 
   sortedLanguages = sortedLanguages.slice(0, amount)
 
   let otherLanguage = null
-  //Return the top `amount` languages + an other
+  // Return the top `amount` languages + an other
   if (otherTime.totalTime > 0) {
     otherLanguage = {
       amount: otherLanguageCount, 
@@ -69,213 +78,299 @@ function TopLanguages (progressStorage: UsageTime, id: number, amount?: number) 
   }
 
   return {
-    id,
-    data: sortedLanguages,
-    otherLanguages: otherLanguage
+    top: sortedLanguages,
+    other: otherLanguage
   }
 }
 
 /**
- * Process an incoming message from the progress webview. 
- * @param message some message object 
- * @param panel vscode panel of the webview. 
+ * Gets project data on a project requested by the progress webview.
+ * @param projectPath path to project.
+ * @param timeRange time range to get stats on.
+ * @param progressStorage all stats.
+ * @returns message to send back to the webview.
  */
-export function ProcessMessage <T extends ServerCommand> (message: T, panel: vscode.WebviewPanel, progressStorage: UsageTime) {
-  //This is the message that is sent back to the client
-  let response: BackendResponse
-  let id = message.id //avoiding some redundant code. 
+function GetProject (projectPath: string, timeRange: TimeRangeNames, progressStorage: UsageTime): ProjectResponse {
+  let project = UsageTime.getProject(progressStorage[timeRange], projectPath)
 
-  /**
-   * Makes sure the `type` property exists on the message and is one of the valid time ranges. 
-   * @param message 
-   * @returns message.type 
-   */
-  function GetMessageTimeType (message: any): TimeRangeNames {
-    if (message.type != "allTime" && message.type != "weeklyTime" && message.type != "todayTime") {
-      message.type = "allTime"
+  if (!projectPath || !project) {
+    return {
+      error: true,
+      errorMessage: "Invalid project path."
     }
-
-    return message.type as TimeRangeNames
   }
 
-  //Grab the data to post
+  return {
+    error: false,
+    path: projectPath,
+    project,
+    info: progressStorage.getCurrentProjectInfo(projectPath)
+  }
+}
+
+/**
+ * An object with command and the extra properties of the command(as specified by `CommandRequestMappings`). 
+ * C stands for command.
+ */
+type ClientRequestMessage<C extends ProgressWebviewCommands> = C extends keyof CommandRequestMappings ? BaseRequest<C> & CommandRequestMappings[C] : BaseRequest<C>
+
+const successMessage = { error: false }
+
+/**
+ * Takes in a message and responds with the appropriate backend response.
+ * @param message check comments for `ClientRequestMessage` and `CommandRequestMappings`
+ * @returns response as dictated by `BackendResponseMapping`
+ */
+export function GetMessageResponse<C extends ProgressWebviewCommands> (message: ClientRequestMessage<C>, progressStorage: UsageTime): CompleteBackendResponse<C> {
+  // It will first be the incomplete response. Since the only difference is the id, it will be added at the end.
+  let response: BackendResponseMapping[C] | CompleteBackendResponse<C>
+
+  // Result, idk why I need to typecast on everyone
+  type R = BackendResponseMapping[C] 
+
   switch (message.command) {
-    case "mostUsedLanguages":
-      response = TopLanguages(progressStorage, id, message.amount)
-      break
     case "extensionStartDate":
       response = {
-        id, data: progressStorage.startTime
-      }
+        date: progressStorage.startTime
+      } as R
+
+      break
+    case "colourTheme":
+      let theme = vscode.window.activeColorTheme.kind
+
+      let isDark = [
+        vscode.ColorThemeKind.Dark,
+        vscode.ColorThemeKind.HighContrast
+      ].includes(theme)
+
+      response = {
+        isDark
+      } as R
+
       break
     case "statsJSONData":
       response = {
-        id, data: JSON.stringify(progressStorage)
-      }
-      break
-    case "updateUsageData":
-      //This is like one where all the processing is done in the main extension instead of the webview.
-      let progressTempBin = new UsageTime(null, (message as UpdateUsageCommand).json)
+        json: JSON.stringify(progressStorage)
+      } as R
 
-      progressStorage.combine(progressTempBin)
-      progressStorage.save(true)
-      
-      response = { id, error: false }
-      
-      vscode.window.showInformationMessage("Combined and updated account stats. :)")
-      break
-    case "scanLines":
-      let msg = message as ScanLinesCommand
-      let codeData = LinesOfCode(msg.path, msg.allowedFileFolders, msg.ignoredFileFolders)
-
-      if ((codeData as ErrorCode).error === true) {
-        let errorCode = (codeData as ErrorCode).code
-        let errorMessage: string 
-
-        if (errorCode == 1) {
-          errorMessage = "Invalid file path specified."
-        } else { //Assuming error code of 0
-          errorMessage = "An unknown error has occurred."
-        }
-
-
-        response = {
-          id, error: true, errorMessage
-        }
-        break
-      }
-
-      response = {
-        id, 
-        ...(codeData as GroupFileStats)
-      }
-      break
-    case "colourTheme":
-      //Gives back the colour theme. 0 or 1 for black and white 
-      let themeCode = vscode.window.activeColorTheme.kind % 2
-      
-      response = {
-        id, data: themeCode
-      }
       break
     case "progressObject": {
-      let progressObject = progressStorage[message.type as TimeRangeNames]
+      let progressObject = progressStorage[message.timeRange]
 
       response = {
-        id,
-        data: progressObject,
+        progress: progressObject,
         cps: progressObject.typing.cps()
-      }
+      } as R
+
       break
     }
     case "currentProject":
-      message.path = vscode.workspace.workspaceFolders?.[0]?.uri?.path
-      //Was originally going to use a function but removing the break instead so they both have "almost" the same functionality :)
-    case "getProject": {
-      let timeRange = GetMessageTimeType(message)
-      let projectPath = message.path
+      let path = vscode.workspace.workspaceFolders?.[0]?.uri?.path
 
-      let project = progressStorage.getProject(progressStorage[timeRange], projectPath)
-
-      if (!projectPath || !project) {
+      if (path) {
+        response = GetProject(path, message.timeRange, progressStorage) as R 
+      } else {
         response = {
-          id, error: true,
-          errorMessage: "Invalid project path."
-        }
-        break
+          error: true,
+          errorMessage: "Failed to find current project path."
+        } as R
       }
 
-      response = {
-        id, project, 
-        path: projectPath,
-        info: progressStorage.getCurrentProjectInfo(projectPath)
-      }
+      break
+    case "getProject": {
+      response = GetProject(message.path, message.timeRange, progressStorage) as R 
       break
     }
-    case "projectPath": 
-      //Sends over one project path. 
-      var projectPaths = vscode.workspace.workspaceFolders
+    case "projectPath":
+      // Sends over one project path. 
+      let projectPaths = vscode.workspace.workspaceFolders
 
       if (!projectPaths) {
         response = {
-          id, error: true,
+          error: true,
           errorMessage: "There are currently no projects open."
-        }
+        } as R
         break
       }
 
       response = {
-        id, data: projectPaths[0].uri.fsPath 
-      }
+        error: false,
+        path: projectPaths[0].uri.fsPath
+      } as R
       break
-    case "allProjectInfos": {
-      //add the .type property for time. 
-      let timeRange = GetMessageTimeType(message)
-
-      response = {
-        id, data: []
-      }
+    case "allProjectInfo": {
+      let projects: ProjectInfo[] = []
       
-      for (let project of progressStorage[timeRange].projects) {
+      for (let project of progressStorage[message.timeRange].projects) {
         let projectInfo = progressStorage.getCurrentProjectInfo(project.path)
 
-        ;(response as AllProjectInfo).data.push({
+        projects.push({
           name: projectInfo.name,
           path: projectInfo.path,
-          time: project.timeAllocation.totalTime
+          time: project.time.totalTime
         })
       }
+
+      response = {
+        projects        
+      } as R
       break
     }
-    case "updateIANames": {//update ignore allow names
-      let msg = message as UpdateIACommand
+    case "mostUsedLanguages":
+      response = TopLanguages(progressStorage, message.amount) as R
+      break
+    case "getGraphData": {
+      let timeRange = progressStorage[message.timeRange]
 
-      let allowedFileFolders = msg.allowedFileFolders as string[]
-      let ignoredFileFolders = msg.ignoredFileFolders as string[]
+      let dataPoints: {
+        name: string
+        amount: number
+      }[] = []
+      let total = 0
 
-      //update the progressStorage      
+      const maxValues = 10 // Most amount of slices.
+      const { type, subtype } = message
+
+      /**
+       * Gets the value of the property on the object as specified by the message.
+       * @param data either a project or a coding language.
+       * @returns value of property.
+       */
+      const GetProperty = (data: ProjectStats | CodingLanguage) => {
+        let amount: number
+
+        if (type == "time") {
+          if (subtype == "active") {
+            amount = data.time.activeTime
+          } else { // subtype == "total"
+            amount = data.time.totalTime
+          }
+        } else {
+          amount = data.edits[type][subtype as "added" | "net" | "removed"]
+        }
+
+        return amount
+      }
+
+      /**
+       * Adds a data point to `dataPoints` for the pie chart. Also increments the total.
+       * @param data either a project or a language to extract some property from.
+       * @param name name that will be given to the pie chart slice.
+       */
+      const AddValue = (data: ProjectStats | CodingLanguage, name: string) => {
+        let amount = GetProperty(data)
+        total += amount
+
+        if (dataPoints.length >= maxValues) {
+          dataPoints[9].name = "Other"
+          dataPoints[9].amount += amount
+        } else {
+          dataPoints.push({
+            name,
+            amount
+          })
+        }
+      }
+
+      // Rank the projects themselves based on the type. 
+      if (message.rank == "projects") {
+        let sortedProjects = [ ...timeRange.projects ]
+        sortedProjects.sort((a, b) => GetProperty(b) - GetProperty(a))
+        
+        for (let project of sortedProjects) {
+          // All projects have project info, so should be defined.
+          AddValue(project, progressStorage.getCurrentProjectInfo(project.path)!.name)
+        }
+      } else { // Ranking languages.
+        // Where we will be pulling the stats from.
+        let data: TimeRange | ProjectStats = timeRange
+
+        if (message.rank != "languages") {
+          let project = UsageTime.getProject(timeRange, message.rank)
+
+          if (project == null) {
+            response = { error: true, errorMessage: "The project does not exist or was not worked on during the time interval." } as R
+            break
+          }
+  
+          data = project
+        }
+
+        const sortedLanguages = Array.from(Object.entries(data.languages)).sort((a, b) => GetProperty(b[1]) - GetProperty(a[1]))
+
+        for (let [ name, language ] of sortedLanguages) {
+          AddValue(language, name)
+        }
+      }
+
+      response = {
+        error: false,
+        data: dataPoints,
+        totalAmount: total
+      } as R
+      break
+    }
+    case "getDefaultIA": {
+      response = GetDefaultIANames() as R
+      break
+    }
+    case "getSearchIgnores":
+      response = GetStatCounterConfig() as R
+      break
+    case "updateIANames": { // update ignore allow names
       let projectPath = vscode.workspace.workspaceFolders?.[0]?.uri?.path
 
       if (!projectPath) {
         response = {
-          id, error: true,
+          error: true,
           errorMessage: "Failed to detect the current folder path."
-        }
+        } as R
         break
       }
 
       let projectDetails = progressStorage.getCurrentProjectInfo(projectPath)
-      
-      projectDetails.search.allowedFileExtensions = allowedFileFolders
-      projectDetails.search.ignoredFileFolderNames = ignoredFileFolders
+      const search = projectDetails.search
+
+      search.allowedFileExtensions = message.allowedFileFolders
+      search.ignoredFileFolderNames = message.ignoredFileFolders
+      search.isDefaultIA = false
 
       progressStorage.save()
 
-      response = { id, error: false }
+      response = successMessage as R
       break
     }
+    case "updateUsageData":
+      let progressTempBin = new UsageTime(null, message.data)
+
+      progressStorage.combine(progressTempBin)
+      progressStorage.save(true)
+      
+      response = successMessage as R
+      
+      vscode.window.showInformationMessage("Combined and updated account stats. :)")
+      break
     case "updateProjectName": {
-      let msg = message as UpdateProjectNameCommand
-      let projectInfo = progressStorage.getCurrentProjectInfo(msg.path)
+      let projectInfo = progressStorage.getCurrentProjectInfo(message.path)
       
       if (!projectInfo) {
         response = {
-          id, error: true,
+          error: true,
           errorMessage: "Failed to detect project path."
-        }
+        } as R
         break
       }
 
-      projectInfo.name = msg.name.substring(0, 256)
+      projectInfo.name = message.name.substring(0, 256)
+      progressStorage.save()
 
-      response = { id, error: false }
+      response = successMessage as R
       break
     }
     case "mergeProjects": {
-      let msg = message as MergeProjectCommand
+      // The first project is the path that is kept.
+      let firstProjectPath = message.paths.shift()!
 
-      //The first project is the path that is kept.
-      let firstProjectPath = msg.paths.shift()!
       let firstProjects: {
         [ key: string ]: ProjectStats | undefined
       } = {}
@@ -285,7 +380,7 @@ export function ProcessMessage <T extends ServerCommand> (message: T, panel: vsc
       })
 
       let errorMessage = ""
-      for (let projectPath of msg.paths) {
+      for (let projectPath of message.paths) {
         if (!progressStorage.getCurrentProjectInfo(projectPath, false)) {
           errorMessage = "The project path entered is invalid."
           break
@@ -295,7 +390,7 @@ export function ProcessMessage <T extends ServerCommand> (message: T, panel: vsc
           let projectIndex = range.projects.findIndex(p => p.path == projectPath)
           let project = range.projects[projectIndex]
 
-          //No project means nothing to merge with the first one, for this time range. 
+          // No project means nothing to merge with the first one, for this time range. 
           if (!project) {
             return
           }
@@ -303,14 +398,14 @@ export function ProcessMessage <T extends ServerCommand> (message: T, panel: vsc
           let firstProject = firstProjects[identifier]
 
           if (!firstProject) {
-            //There isn't an original, so set this one as it. 
+            // There isn't an original, so set this one as it. 
             project.path = firstProjectPath
             return
-          } //otherwise, they both exist so combine.
+          } // otherwise, they both exist so combine.
 
           firstProject.combine(project, false)
 
-          //Remove the project 
+          // Remove the project 
           range.projects.splice(projectIndex, 1)
         })
 
@@ -318,17 +413,74 @@ export function ProcessMessage <T extends ServerCommand> (message: T, panel: vsc
       }
 
       if (errorMessage) {
-        response = { id, error: true, errorMessage }
+        response = { error: true, errorMessage } as R
       } else {
-        response = { id, error: false }
+        response = successMessage as R
       }
       break
     }
-    //All cases should be exhausted. 
-    // default: 
-      // throw new Error(`Unknown command found from webview. ${message.command}`)
+    case "scanLines": {
+      // Check if we need to ignore the gitignore or vscodeignore
+      let { ignoredGitignore, ignoreVscodeIgnore } = GetStatCounterConfig()
+
+      let path = message.path
+      if (!path.endsWith("/") && !path.endsWith("\\")) {
+        path += "/"
+      }
+
+      /**
+       * Gets the ignored file globs from a gitignore or a vscodeignore file.
+       * @param filePath path to gitignore or vscodeignore
+       * @returns list of globs
+       */
+      function GetIgnoreGlobs (filePath: string) {
+        if (!fs.existsSync(filePath)) {
+          return []
+        }
+
+        return fs.readFileSync(filePath).toString().split("\n").filter(item => item.length > 0)
+      }
+
+      let ignoredFileFolders: string[] = [ ...message.ignoredFileFolders ]
+      // Check for the ignore files.
+      if (ignoredGitignore) {
+        ignoredFileFolders.push(...GetIgnoreGlobs(`${path}.gitignore`))
+      }
+
+      if (ignoreVscodeIgnore) {
+        ignoredFileFolders.push(...GetIgnoreGlobs(`${path}.vscodeignore`))
+      }
+
+      // This is case insensitive.
+      ignoredFileFolders = ignoredFileFolders.map(item => item.toLowerCase())
+
+      let codeData = LinesOfCode(path, message.allowedFileFolders, ignoredFileFolders)
+
+      if ((codeData as ErrorCode).error === true) {
+        let errorCode = (codeData as ErrorCode).code
+        let errorMessage: string 
+
+        if (errorCode == 1) {
+          errorMessage = "Invalid file path specified."
+        } else { // Assuming error code of 0
+          errorMessage = "An unknown error has occurred."
+        }
+
+        response = {
+          error: true, errorMessage
+        } as R
+        break
+      }
+
+      response = {
+        error: false,
+        ...(codeData as GroupFileStats)
+      } as R
+      break
+    }
   }
 
-  //Post the message
-  panel.webview.postMessage(response)
+  ;(response as CompleteBackendResponse<C>).id = message.id
+
+  return response as CompleteBackendResponse<C>
 }

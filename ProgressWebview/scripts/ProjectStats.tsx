@@ -1,15 +1,17 @@
 import React from "react"
 import ReactDOM from "react-dom"
 
-import { AllProjectInfo, ErrorResponse, ProjectResponse } from "../shared/MessageTypes"
 import { AwaitMessage } from "./MessageHandler"
 import { containerDivs } from "./GenerateBody"
 import { CodeModifiedHTMLView, CodeTimeHTMLView } from "./RangeProgress"
-import { CreateLineInput } from "./Utility"
+import { AddOptions, CreateLineInput } from "./utility"
+import { BackendResponseMapping, ProjectResponse } from "../../shared/MessageTypes"
+import { TimeRangeNames } from "../../src/structs/structs"
+import { maxProjectNameLength } from "../../shared/constants"
 
 export async function SetUpProjectStats () {
-  //constructs the project html. 
-  let currentProjectData = await AwaitMessage({ command: "currentProject", type: "allTime" }) as ProjectResponse
+  // constructs the project html. 
+  let currentProjectData = await AwaitMessage({ command: "currentProject", timeRange: "allTime" })
   containerDivs.projectProgress.appendChild(await BuildCompleteProjectHTMLView(currentProjectData))
 }
 
@@ -35,31 +37,16 @@ async function BuildCompleteProjectHTMLView (project: ProjectResponse): Promise<
   let timeRangeSelectMenu = contentContainer.querySelector("#timeRangeSelectMenu") as HTMLSelectElement
   let projectSortSelectMenu = contentContainer.querySelector("#projectSortSelectMenu") as HTMLSelectElement
 
-  /**
-   * 
-   * @param menu 
-   * @param { { name: string, value: string }[] } options 
-   */
-  let AddOptions = (menu: HTMLSelectElement, options: { name: string; value: string }[]) => {
-    for (let option of options) {
-      let optionElem = document.createElement("option")
-      optionElem.value = option.value
-      optionElem.text = option.name
-  
-      menu.appendChild(optionElem)
-    }
-  }
-
-  //add the time ranges. 
+  // add the time ranges. 
   const timeRanges = [
     { name: "All Time", value: "allTime" },
     { name: "Weekly", value: "weeklyTime" },
     { name: "Today", value: "todayTime" },
   ]
   AddOptions(timeRangeSelectMenu, timeRanges)
-  timeRangeSelectMenu.selectedIndex = 0 //set the all time to be selected. 
+  timeRangeSelectMenu.selectedIndex = 0 // set the all time to be selected. 
 
-  //add the sort options 
+  // add the sort options 
   const sortOptions = [
     { name: "Alphabetical", value: "alphabetical" },
     { name: "Time Spent", value: "time" },
@@ -67,11 +54,11 @@ async function BuildCompleteProjectHTMLView (project: ProjectResponse): Promise<
   AddOptions(projectSortSelectMenu, sortOptions)
   projectSortSelectMenu.selectedIndex = 0
 
-  //add the options. This will need to fetch the project later. 
-  //sorting the projects so it's easier for the user
-  let projectInfoSort: { [key: string]: ((projectInfoResponse: AllProjectInfo) => void) } = {
+  // add the options. This will need to fetch the project later. 
+  // sorting the projects so it's easier for the user
+  let projectInfoSort: { [key: string]: ((projectInfoResponse: BackendResponseMapping["allProjectInfo"]) => void) } = {
     alphabetical: (projectInfoResponse) => {
-      projectInfoResponse.data.sort((a, b) => {
+      projectInfoResponse.projects.sort((a, b) => {
         let aName = a.name.toLowerCase()
         let bName = b.name.toLowerCase()
     
@@ -85,19 +72,20 @@ async function BuildCompleteProjectHTMLView (project: ProjectResponse): Promise<
       })
     },
     time: (projectInfoResponse) => {
-      //descending order
-      projectInfoResponse.data.sort((a, b) => b.time - a.time)
+      // descending order
+      projectInfoResponse.projects.sort((a, b) => b.time - a.time)
     }
   }
   type SortTypes = "alphabetical" | "time"
 
   let SortAndBuildProjectInfo = async (type: SortTypes) => {
-    let projectInfoResponse = await AwaitMessage({ command: "allProjectInfos", type: timeRangeSelectMenu.selectedOptions[0].value }) as AllProjectInfo
+    let timeRange = timeRangeSelectMenu.selectedOptions[0].value as TimeRangeNames
+    let projectInfoResponse = await AwaitMessage({ command: "allProjectInfo", timeRange })
     
-    //sort it. 
+    // sort it. 
     projectInfoSort[type](projectInfoResponse)
 
-    //remove any existing one.
+    // remove any existing one.
     for (let i = projectSelectMenu.children.length-1; i > 0; i --) {
       projectSelectMenu.removeChild(projectSelectMenu.children[i])
     }
@@ -105,49 +93,51 @@ async function BuildCompleteProjectHTMLView (project: ProjectResponse): Promise<
     if (projectSelectMenu.childElementCount == 0) {
       ReactDOM.render(<option value="" disabled selected>None Selected</option>, projectSelectMenu)
     }
+
     let projectFound = false 
 
-    //add all the select options. 
-    for (let i = 0; i < projectInfoResponse.data.length; i++) {
-      let projectInfo = projectInfoResponse.data[i]
+    // add all the select options. 
+    for (let i = 0; i < projectInfoResponse.projects.length; i++) {
+      let projectInfo = projectInfoResponse.projects[i]
   
       let option = document.createElement("option")
-      //text is what is displayed to the user. 
+      // text is what is displayed to the user. 
       option.value = projectInfo.path
       option.text = projectInfo.name
   
       projectSelectMenu.appendChild(option)
   
-      //current selected project :)
-      if (projectInfo.path == project.info?.path) {
-        projectSelectMenu.selectedIndex = i+1 //none option takes the first slot
+      // current selected project :)
+      if (!project.error && projectInfo.path == project.info?.path) {
+        projectSelectMenu.selectedIndex = i+1 // none option takes the first slot
         projectFound = true
       }
     }
 
-    //unselect the item if there is no current project(most likely) or if no project was found.
+    // unselect the item if there is no current project(most likely) or if no project was found.
     if (!projectFound) {
       projectSelectMenu.selectedIndex = 0
     }
   }
   await SortAndBuildProjectInfo("alphabetical")
 
-  //select menu listeners 
+  // select menu listeners 
   projectSelectMenu.addEventListener("change", async () => {
-    //this should have only one item. 
+    // this should have only one item. 
     let projectPath = projectSelectMenu.selectedOptions[0].value
 
-    //set it to the new project. 
-    project = await AwaitMessage({ command: "getProject", path: projectPath, type: timeRangeSelectMenu.selectedOptions[0].value }) as ProjectResponse
+    let timeRange = timeRangeSelectMenu.selectedOptions[0].value as TimeRangeNames
+    // set it to the new project. 
+    project = await AwaitMessage({ command: "getProject", path: projectPath, timeRange })
 
     ReactDOM.render(BuildProjectHTMLView(project), document.getElementById("projectStatsContainer"))
-    if (project.info) {
+    if (!project.error) {
       (document.getElementById("projectNameInput") as HTMLTextAreaElement).value = project.info.name
     }
   })
 
   timeRangeSelectMenu.addEventListener("change", async () => {
-    //This is so that when the time range is changed but there was originally no project selected(because a project folder wasn't open), it won't say the project wasn't worked on. What a random bug... 
+    // This is so that when the time range is changed but there was originally no project selected(because a project folder wasn't open), it won't say the project wasn't worked on. What a random bug... 
     let originalIndex = projectSelectMenu.selectedIndex
 
     await SortAndBuildProjectInfo(projectSortSelectMenu.selectedOptions[0].value as SortTypes)
@@ -158,9 +148,9 @@ async function BuildCompleteProjectHTMLView (project: ProjectResponse): Promise<
     }
 
     let path = projectSelectMenu.selectedOptions[0].value
-    let type = timeRangeSelectMenu.selectedOptions[0].value
+    let timeRange = timeRangeSelectMenu.selectedOptions[0].value as TimeRangeNames
 
-    project = await AwaitMessage({ command: "getProject", path, type }) as ProjectResponse
+    project = await AwaitMessage({ command: "getProject", path, timeRange })
     ReactDOM.render(BuildProjectHTMLView(project), document.getElementById("projectStatsContainer"))
   })
   
@@ -182,8 +172,8 @@ async function BuildCompleteProjectHTMLView (project: ProjectResponse): Promise<
  * @returns 
  */
 function BuildProjectHTMLView (project: ProjectResponse) {
-  //no project found
-  if (!project.project || !project.info) {
+  // no project found
+  if (project.error) {
     return (
       <>
         <span>No Project Selected</span> <br/>
@@ -193,11 +183,27 @@ function BuildProjectHTMLView (project: ProjectResponse) {
 
   let projectPath = project.path
 
-  //This function gets called as each character is typed in. I don't think matter too much right now since saving is only triggered every x minutes.
-  //I'll optimize this later. 
+  // This function gets called as each character is typed in. I don't think matter too much right now since saving is only triggered every x minutes.
+  // I'll optimize this later. 
   let SetProjectName = async (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    //Currently capping it at 256. 
-    let name = event.target.value.substring(0, 256)
+    const errorDisplay = document.getElementById("invalidProjectNameDisplay") as HTMLDivElement
+    
+    const trimmedName = event.target.value.trim()
+
+    if (trimmedName == "") {
+      errorDisplay.style.display = ""
+      return 
+    } else {
+      errorDisplay.style.display = "none"
+    }
+
+    // Currently capping it at maxProjectNameLength. 
+    const name = trimmedName.substring(0, maxProjectNameLength)
+
+    if (trimmedName.length > maxProjectNameLength) {
+      event.target.value = name
+    }
+    ;(document.getElementById("projectSelectMenu") as HTMLSelectElement).selectedOptions[0].text = name
     
     await AwaitMessage({ command: "updateProjectName", name, path: projectPath })
   }
@@ -208,29 +214,25 @@ function BuildProjectHTMLView (project: ProjectResponse) {
     let otherPath = pathInput.value.trim()
     pathInput.value = ""
 
-    //Not going to throw an error for empty strings incase of a double click or something. 
-    if (!otherPath) {
-      return
-    }
-
-    let errorDisplay = document.getElementById("mergeProjectErrorDisplay") as HTMLSpanElement 
+    const errorDisplay = document.getElementById("mergeProjectErrorDisplay") as HTMLSpanElement 
 
     if (otherPath == projectPath) {
       errorDisplay.innerText = "Projects cannot be merged with themselves.\n"
+      return
+    } else if (otherPath == "") {
+      errorDisplay.innerText = "You must enter a project path.\n"
       return
     }
 
     let result = await AwaitMessage({ command: "mergeProjects", paths: [ projectPath, otherPath ] })
 
-    if ((result as ErrorResponse).error) {
-      result = result as ErrorResponse
-      
+    if (result.error) {
       errorDisplay.innerText = result.errorMessage + "\n"
       return
     }
     errorDisplay.innerText = ""
 
-    //Get rid of the merged project from the select menu. 
+    // Get rid of the merged project from the select menu. 
     let projectSelectMenu = document.getElementById("projectSelectMenu") as HTMLSelectElement
     let otherProjectIndex: number | null = null
 
@@ -246,10 +248,10 @@ function BuildProjectHTMLView (project: ProjectResponse) {
     }
 
     let timeRangeSelectMenu = document.getElementById("timeRangeSelectMenu") as HTMLSelectElement
-    let timeRange = timeRangeSelectMenu.selectedOptions[0].value
+    let timeRange = timeRangeSelectMenu.selectedOptions[0].value as TimeRangeNames
 
-    //Reload the project.
-    let project = await AwaitMessage({ command: "getProject", path: projectPath, type: timeRange }) as ProjectResponse
+    // Reload the project.
+    let project = await AwaitMessage({ command: "getProject", path: projectPath, timeRange }) as ProjectResponse
     let statsContainer = document.getElementById("projectStatsContainer") as HTMLDivElement
 
     ReactDOM.render(BuildProjectHTMLView(project), statsContainer)
@@ -264,13 +266,14 @@ function BuildProjectHTMLView (project: ProjectResponse) {
         <div className="textLine">Name: </div>
         <textarea className="smallLineInputTextarea textLine" onChange={ SetProjectName } defaultValue={project.info.name} id="projectNameInput"></textarea>
       </div>
+      <div style={{ display: "none" }} className="redText" id="invalidProjectNameDisplay">Project name cannot be empty, or consist only of whitespaces.</div>
 
-      { CodeTimeHTMLView(project.project.timeAllocation) }
+      { CodeTimeHTMLView(project.project.time) }
       { CodeModifiedHTMLView(project.project.edits, true) }
 
       { CreateLineInput("Merge With: ", <textarea className="smallLineInputTextarea textLine" id="mergeProjectInput"></textarea>) }
-      <button onClick={MergeProject}>Merge Project</button><br/>
       <span id="mergeProjectErrorDisplay" className="redText"></span>
+      <button onClick={MergeProject}>Merge Project</button><br/>
       Note: the project entered above(one being merged) will be deleted.
     </>
   )

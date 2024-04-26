@@ -1,4 +1,4 @@
-//Some helper functions 
+// Some helper functions 
 import React from "react"
 
 /**
@@ -15,4 +15,24 @@ export function CreateLineInput (name: string, textarea: React.JSX.Element) {
       { textarea }
     </div>
   )
+}
+
+export interface SelectMenuOptions {
+  name: string
+  value: string
+}
+
+/**
+ * Add options based on name and value to a select menu.
+ * @param menu menu to add options to.
+ * @param options options to add.
+ */
+export function AddOptions (menu: HTMLSelectElement, options: SelectMenuOptions[]) {
+  for (let option of options) {
+    let optionElem = document.createElement("option")
+    optionElem.value = option.value
+    optionElem.text = option.name
+
+    menu.appendChild(optionElem)
+  }
 }

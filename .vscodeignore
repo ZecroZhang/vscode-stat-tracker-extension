@@ -8,8 +8,8 @@
 **/.eslintrc.json
 **/*.map
 **/*.ts
+**/*.tsx
 
-ProgressWebview/*
-!ProgressWebview/*.css
+ProgressWebview/index.js
 
 todo

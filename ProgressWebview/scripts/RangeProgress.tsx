@@ -1,18 +1,21 @@
-//Display stats for progress per time ranges. 
+// Display stats for progress per time ranges. 
 
 import React from "react"
 import ReactDOM from "react-dom"
-import { Edits, TimeAllocation, TimeRangeNames } from "../src/Structures"
-import { ProgressObjectResponse } from "../shared/MessageTypes"
 import { AwaitMessage } from "./MessageHandler"
-import { MsToTime } from "../shared/functions"
+import { MsToTime } from "../../shared/functions"
 import { containerDivs } from "./GenerateBody"
+
+import { Edits } from "../../src/structs/Edits"
+import { TimeAllocation } from "../../src/structs/TimeAllocation"
+import { TimeRangeNames } from "../../src/structs/structs"
+import { BackendResponseMapping } from "../../shared/MessageTypes"
 
 /**
  * Sets up all the time range stats. Today/weekly/all time 
  */
 export async function SetUpTimeRangeStats () {
-  //Set up main content 
+  // Set up main content 
   SetUpTimeRangeView("todayTime", "Today", "todayProgressDiv")
   SetUpTimeRangeView("weeklyTime", "This Week", "weeklyProgressDiv")
   SetUpTimeRangeView("allTime", "All Time", "totalProgressDiv")
@@ -35,16 +38,16 @@ function DetailedView (isDetailed: boolean, type: TimeRangeNames, name: TimeTitl
 
 /**
  * Function for setting up the HTML webview. 
- * @param type Type of the time range. 
+ * @param timeRange Type of the time range. 
  * @param name Title for the time range. 
  * @param progressDiv HTML Id of the container div for the progress. 
  * @param detailed If the time range stats should display detailed view(true) or the generic view(false). 
  */
-async function SetUpTimeRangeView (type: TimeRangeNames, name: TimeTitle, progressDiv: TimeRangeHTMLIds, detailed: boolean = false) {  
+async function SetUpTimeRangeView (timeRange: TimeRangeNames, name: TimeTitle, progressDiv: TimeRangeHTMLIds, detailed: boolean = false) {  
   try {
-    let info = await AwaitMessage({ command: "progressObject", type }) as ProgressObjectResponse
+    let info = await AwaitMessage({ command: "progressObject", timeRange })
 
-    let data = BuildTimeViewHTML(info, name, [ type, name, progressDiv ], detailed)
+    let data = BuildTimeViewHTML(info, name, [ timeRange, name, progressDiv ], detailed)
     
     ReactDOM.render(data, containerDivs[progressDiv])
   } catch (e) {
@@ -64,7 +67,7 @@ async function SetUpTimeRangeView (type: TimeRangeNames, name: TimeTitle, progre
  * @param detailed false = normal view, true = detailed view.
  * @returns React element/HTML data 
  */
-function BuildTimeViewHTML (info: ProgressObjectResponse, timeTitle: TimeTitle, params: [TimeRangeNames, TimeTitle, TimeRangeHTMLIds], detailed: boolean = false) {
+function BuildTimeViewHTML (info: BackendResponseMapping["progressObject"], timeTitle: TimeTitle, params: [TimeRangeNames, TimeTitle, TimeRangeHTMLIds], detailed: boolean = false) {
   let cpsString: string
   if (info.cps == "unknown") {
     cpsString = info.cps
@@ -78,12 +81,13 @@ function BuildTimeViewHTML (info: ProgressObjectResponse, timeTitle: TimeTitle, 
     </>
   )
 
-  let progress = info.data
+  let progress = info.progress
 
   let resetTime = <></>
   if (progress.resets && params[0] != "allTime") {
     resetTime = (
       <>
+        <br/>
         <strong>Resets:</strong> {new Date(progress.resets).toString()} <br/>
       </>
     )
@@ -99,7 +103,8 @@ function BuildTimeViewHTML (info: ProgressObjectResponse, timeTitle: TimeTitle, 
       {CodeTimeHTMLView(progress.codeTime)} { CodeModifiedHTMLView(progress.edits, detailed) }
       {cpsDisplay}
 
-      <strong>Projects:</strong> {progress.projects.length} <br/> <br/>
+      <strong>Projects:</strong> {progress.projects.length}
+      <br/>
 
       {resetTime}
 
@@ -125,9 +130,9 @@ export function CodeModifiedHTMLView (info: Edits, detailed: boolean) {
 
   let components: React.JSX.Element[] = []
 
-  if (detailed) { //the more detailed view. 
-    for (var c = 0; c < types.length; c++) {
-      for (var action of ([ "added", "removed", "net" ] as const)) {
+  if (detailed) { // the more detailed view. 
+    for (let c = 0; c < types.length; c++) {
+      for (let action of ([ "added", "removed", "net" ] as const)) {
         components.push(
           <>
             <strong>{typeNames[c]} {action.substring(0, 1).toUpperCase()}{action.substring(1)}:</strong> {info[types[c]][action].toLocaleString()}<br/>
@@ -137,7 +142,7 @@ export function CodeModifiedHTMLView (info: Edits, detailed: boolean) {
       components.push(<br/>)
     }
   } else {
-    for (var c = 0; c < types.length; c++) {
+    for (let c = 0; c < types.length; c++) {
       components.push(
         <>
           <strong>{typeNames[c]} Added:</strong> {info[types[c]].net.toLocaleString()}<br/>
