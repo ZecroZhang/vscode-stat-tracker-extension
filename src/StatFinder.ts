@@ -2,7 +2,7 @@
 
 import fs from "fs"
 import { minimatch } from "minimatch"
-import path from "path" 
+import path from "path"
 
 interface FileStats {
   lines: number
@@ -123,15 +123,9 @@ export function LinesOfCode (startPath: string, allowedExtensions: string[] = []
 }
 
 function GetFileStats (path: string): FileStats {
-  const data = fs.readFileSync(path, { encoding: "utf8" })
-
-  let lines = 0
-  if (data.length > 0) {
-    lines = (data.match(/\n/g)?.length || 0) + 1
-  }
-
+  let data = fs.readFileSync(path, { encoding: "utf8" })
   return {
-    lines,
+    lines: (data.match(/\n/g)?.length || 0) + 1,
     characters: data.length
   }
 }

@@ -13,9 +13,9 @@ export class StatCounterSearch {
   isDefaultIA: boolean
 
   constructor (statCounterSearch?: DeepPartial<StatCounterSearch>) {
-    this.path = statCounterSearch?.path ?? ""
-    this.allowedFileExtensions = statCounterSearch?.allowedFileExtensions ?? []
-    this.ignoredFileFolderNames = statCounterSearch?.ignoredFileFolderNames ?? []
+    this.path = statCounterSearch?.path || ""
+    this.allowedFileExtensions = statCounterSearch?.allowedFileExtensions || []
+    this.ignoredFileFolderNames = statCounterSearch?.ignoredFileFolderNames || []
 
     this.isDefaultIA = statCounterSearch?.isDefaultIA ?? true
   }

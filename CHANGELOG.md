@@ -1,16 +1,5 @@
 # Change Log
 
-### [1.1.0]
-#### In development
-- Relevance sort for projects in the webview.
-
-#### Changed
-- Improved documentation surrounding [Webview Stat Counter](README.md#file-counter).
-
-#### Fixed
-- Bug resulting it being impossible to remove `.js` from `Allowed File Extensions` and `node_modules`, `.git` from `Ignored File/Folder Globs`.
-- Stat counter counting empty files having 1 line instead of 0.
-
 ### [1.0.0]
 #### Added
 - Support for untrusted workspaces.
