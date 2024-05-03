@@ -2,7 +2,7 @@
 
 import fs from "fs"
 import { minimatch } from "minimatch"
-import path from "path"
+import path from "path" 
 
 interface FileStats {
   lines: number
