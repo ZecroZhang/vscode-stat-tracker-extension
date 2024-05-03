@@ -12,10 +12,15 @@ The webview can generate interactive pie charts for certain stats. Select the ti
 #### File Counter
 The `Stat Counter` section lets you count the amount of lines across all the files inside the folder and subfolders.\
 \
+`Project Path`: folder to scan. This is the project path every time you enter the webview. You can change it during the session, but it won't save.\
 `Allowed File Extensions` specifies the file extensions, separated by commas, which will be counted. ONLY these files are counted.\
 `Ignored File/Folder Globs` specifies any file/folder globs, separated by commas, to ignore.\
 \
-You can also have it ignore the globs in `.gitignore` or `.vscodeignore` by toggling it in the [extension settings](#extension-settings). In addition, the default values for `Allowed File Extensions` and `Ignored File/Folder Globs` can also be toggled in settings.
+You can also have it ignore the globs in `.gitignore` or `.vscodeignore` by toggling it in the [extension settings](#extension-settings). In addition, the default values for `Allowed File Extensions` and `Ignored File/Folder Globs` can also be toggled in settings.\
+\
+Note:
+- Changes made to `Allowed File Extensions`, `Ignored File/Folder Globs` will save **only after** clicking the `Scan` button.
+- Ignoring globs takes precedence over the allowed file extensions.
 
 ### Progress Tracking
 This extension tracks a variety of usage stats across time intervals of today, this week and since installation.\
