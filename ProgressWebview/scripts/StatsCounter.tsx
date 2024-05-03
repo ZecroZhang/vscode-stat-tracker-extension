@@ -44,8 +44,8 @@ export async function SetUpStatsCounter () {
   ReactDOM.render(progressCounterData, progressCounterDiv)
   
   // The file/folder names which will be ignored or allowed. 
-  const ignoredFileFolders: Set<string> = new Set([ "node_modules", ".git" ])
-  const allowedFileFolders: Set<string> = new Set([ ".js" ])
+  const ignoredFileFolders: Set<string> = new Set()
+  const allowedFileFolders: Set<string> = new Set()
 
   let projectPathInput = document.getElementById("projectPathInput") as HTMLTextAreaElement // Textarea for the user to enter the project path.
   let ignoreFileFolderInput = document.getElementById("ignoreFileFolderInput") as HTMLTextAreaElement // We ignore these folders/files.
@@ -76,7 +76,6 @@ export async function SetUpStatsCounter () {
     const { allowed, ignored } = await AwaitMessage({ command: "getDefaultIA" })
     projectInfo.search.ignoredFileFolderNames = ignored
     projectInfo.search.allowedFileExtensions = allowed
-
   }
 
   // add the project 

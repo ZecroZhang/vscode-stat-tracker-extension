@@ -123,9 +123,15 @@ export function LinesOfCode (startPath: string, allowedExtensions: string[] = []
 }
 
 function GetFileStats (path: string): FileStats {
-  let data = fs.readFileSync(path, { encoding: "utf8" })
+  const data = fs.readFileSync(path, { encoding: "utf8" })
+
+  let lines = 0
+  if (data.length > 0) {
+    lines = (data.match(/\n/g)?.length || 0) + 1
+  }
+
   return {
-    lines: (data.match(/\n/g)?.length || 0) + 1,
+    lines,
     characters: data.length
   }
 }
